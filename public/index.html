@@ -35,6 +35,24 @@
         <div id="sourceBadges" class="source-badges"></div>
       </section>
 
+      <section class="address-analysis-panel" aria-label="ניתוח לפי כתובת">
+        <div class="address-analysis-heading">
+          <div><p class="eyebrow">Address Intelligence</p><h2>בדיקת עסקאות לפי כתובת</h2><p>אותו בניין, אותו רחוב ואותה שכונה מקבלים עדיפות. חציון עירוני אינו נכנס לחישוב.</p></div>
+        </div>
+        <form id="addressAnalysisForm" class="address-analysis-form">
+          <label class="address-field">כתובת מלאה *
+            <input name="address" list="addressSuggestions" placeholder="לדוגמה: יצחק רבין 10, קריית אונו" autocomplete="street-address" required>
+            <datalist id="addressSuggestions"></datalist>
+          </label>
+          <label>חדרים<input name="rooms" type="number" min="1" max="10" step="0.5" placeholder="אוטומטי אם הנכס קיים"></label>
+          <label>שטח במ״ר<input name="areaSqm" type="number" min="1" step="0.1" placeholder="אוטומטי אם הנכס קיים"></label>
+          <label>קומה<input name="floor" type="number" step="1" placeholder="אוטומטי"></label>
+          <button type="submit" class="refresh-button">ניתוח הכתובת</button>
+        </form>
+        <output id="addressAnalysisStatus" class="address-analysis-status" aria-live="polite"></output>
+        <div id="addressAnalysisResults" class="address-analysis-results" hidden></div>
+      </section>
+
       <details class="marketplace-panel">
         <summary><span><b>Facebook Marketplace Inbox</b><small>הדבקת קישור או צילום מסך והוספה להשוואת לוחות</small></span><strong>הוספת מודעה</strong></summary>
         <form id="marketplaceForm" class="marketplace-form">

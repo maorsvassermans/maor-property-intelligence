@@ -27,6 +27,13 @@ test('serves health and analysis endpoints', async (t) => {
   assert.match(html,/MAOR Property Intelligence/);
   assert.match(html,/propertyMap/);
   assert.match(html,/priceChart/);
+  assert.match(html,/addressAnalysisForm/);
+  const addressSuggestions=await fetch(`http://127.0.0.1:${port}/api/v1/addresses/suggest?q=${encodeURIComponent('המעגל 14')}`).then((r)=>r.json());
+  assert.ok(Array.isArray(addressSuggestions.data));
+  const addressResponse=await fetch(`http://127.0.0.1:${port}/api/v1/address-analysis?address=${encodeURIComponent('המעגל 14, קריית אונו')}&rooms=4&areaSqm=79&floor=1`);
+  assert.equal(addressResponse.status,200);
+  const addressAnalysis=await addressResponse.json();
+  assert.ok(addressAnalysis.data.evidence.scopeCounts.building>=1);assert.equal(addressAnalysis.data.evidence.cityFallbackUsed,false);
   const charts=await fetch(`http://127.0.0.1:${port}/api/v1/listings/1/charts`).then((r)=>r.json());
   assert.equal(charts.data.priceHistory.length,2);
   assert.ok(charts.data.rentalComps.length>=3);

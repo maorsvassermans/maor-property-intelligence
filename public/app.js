@@ -200,6 +200,48 @@ async function renderCharts(id,item){
   }catch(error){['priceChart','rentChart','transactionChart','yieldChart'].forEach((chartId)=>el(chartId).innerHTML=chartEmpty(error.message))}
 }
 
+const confidenceLabels={high:'ביטחון גבוה',medium:'ביטחון בינוני',low:'ביטחון נמוך',none:'אין בסיס מקומי'};
+const scopeLabels={building:'אותו בניין',street:'אותו רחוב',neighborhood:'אותה שכונה',nearby:'עד קילומטר'};
+
+function renderAddressAnalysis(data){
+  const target=el('addressAnalysisResults'),valuation=data.valuation,evidence=data.evidence;
+  target.hidden=false;
+  const valuationCards=valuation?`
+    <article class="address-result-card"><span>שווי ממוקד</span><strong>${money.format(valuation.midpoint)}</strong><small>${money.format(valuation.low)} עד ${money.format(valuation.high)}</small></article>
+    <article class="address-result-card"><span>חציון למ״ר</span><strong>${money.format(valuation.medianPricePerSqm)}</strong><small>טווח ${money.format(valuation.lowPricePerSqm)} עד ${money.format(valuation.highPricePerSqm)}</small></article>`:`
+    <article class="address-result-card"><span>שווי ממוקד</span><strong>נדרש שטח</strong><small>הזן שטח כדי להמיר מחיר למ״ר לשווי</small></article>
+    <article class="address-result-card"><span>חציון למ״ר</span><strong>אין מספיק ראיות</strong><small>לא הוצג חציון עירוני חלופי</small></article>`;
+  const askingCard=data.matchedListing?`<article class="address-result-card"><span>מודעה תואמת</span><strong>${money.format(data.matchedListing.askingPrice)}</strong><small>${valuation?.askingVsMidpointPct==null?'ללא השוואת שווי':`${valuation.askingVsMidpointPct>0?'+':''}${valuation.askingVsMidpointPct}% מול האמצע`}</small></article>`:`<article class="address-result-card"><span>מודעה תואמת</span><strong>לא נמצאה</strong><small>הניתוח מתייחס לכתובת שהוזנה</small></article>`;
+  const rows=data.comparables.map((comp)=>`<tr><td><span class="match-score-pill">${comp.match_score}</span></td><td><strong>${escapeHtml(comp.street)} ${escapeHtml(comp.house_number||'')}</strong><small>${escapeHtml(scopeLabels[comp.scope]||comp.scope_label)}</small></td><td>${new Date(comp.transaction_date).toLocaleDateString('he-IL')}</td><td>${comp.rooms??'?'}</td><td>${comp.area_sqm??'?'} מ״ר</td><td>${comp.floor??'?'}</td><td>${money.format(comp.price)}</td><td>${money.format(comp.price_per_sqm)}</td></tr>`).join('');
+  target.innerHTML=`
+    <div class="address-result-summary">
+      <article class="address-result-card"><span>הכתובת שנבדקה</span><strong>${escapeHtml(data.query.address)}</strong><small>${escapeHtml(data.query.neighborhood||'שכונה לא זוהתה')} · ${data.query.rooms||'?'} חדרים · ${data.query.areaSqm||'?'} מ״ר</small></article>
+      ${valuationCards}${askingCard}
+    </div>
+    <div class="address-scope-row"><span class="address-confidence ${evidence.confidence}">${confidenceLabels[evidence.confidence]}</span><span>אותו בניין: ${evidence.scopeCounts.building}</span><span>אותו רחוב: ${evidence.scopeCounts.street}</span><span>אותה שכונה: ${evidence.scopeCounts.neighborhood}</span><span>קרוב גאוגרפית: ${evidence.scopeCounts.nearby}</span><span>${evidence.availableInCity} עסקאות בעיר, לא כולן בחישוב</span></div>
+    <p class="address-analysis-message">${escapeHtml(data.message)}</p>
+    ${rows?`<div class="address-comps-table"><table><thead><tr><th>התאמה</th><th>עסקה</th><th>תאריך</th><th>חדרים</th><th>שטח</th><th>קומה</th><th>מחיר</th><th>מחיר למ״ר</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="address-empty">אין כרגע עסקאות מאותו בניין, רחוב, שכונה או בטווח גאוגרפי של קילומטר. המערכת נמנעה מהצגת חציון עירוני מטעה.</div>`}`;
+}
+
+let addressSuggestionTimer;
+el('addressAnalysisForm').elements.address.addEventListener('input',(event)=>{
+  clearTimeout(addressSuggestionTimer);const value=event.target.value.trim();if(value.length<2)return;
+  addressSuggestionTimer=setTimeout(async()=>{
+    try{const response=await fetch(`/api/v1/addresses/suggest?q=${encodeURIComponent(value)}&limit=12`),payload=await response.json();if(!response.ok)return;el('addressSuggestions').innerHTML=payload.data.map((item)=>`<option value="${escapeHtml(item.address)}">${escapeHtml(item.neighborhood||'')} · ${item.transactions} עסקאות</option>`).join('')}catch{}
+  },250);
+});
+
+el('addressAnalysisForm').addEventListener('submit',async(event)=>{
+  event.preventDefault();const form=event.currentTarget,status=el('addressAnalysisStatus'),button=form.querySelector('button[type="submit"]'),params=new URLSearchParams();
+  for(const [key,value] of new FormData(form).entries())if(String(value).trim())params.set(key,value);
+  status.className='address-analysis-status';status.textContent='מאתר את הכתובת ומדרג עסקאות מקומיות...';button.disabled=true;
+  try{
+    const response=await fetch(`/api/v1/address-analysis?${params}`),payload=await response.json();if(!response.ok)throw new Error(payload.message||'ניתוח הכתובת נכשל');
+    renderAddressAnalysis(payload.data);status.className='address-analysis-status success';status.textContent=`נבחרו ${payload.data.evidence.selectedComparables} עסקאות ממוקדות מתוך ${payload.data.evidence.availableInCity} עסקאות בעיר.`;
+  }catch(error){status.className='address-analysis-status error';status.textContent=error.message;el('addressAnalysisResults').hidden=true}
+  finally{button.disabled=false}
+});
+
 ['searchInput','scoreFilter','sourceFilter'].forEach((id)=>el(id).addEventListener(id==='searchInput'?'input':'change',applyFilters));
 el('refreshButton').addEventListener('click',loadDashboard);
 

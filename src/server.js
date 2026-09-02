@@ -13,6 +13,7 @@ import { runScan } from './scanner.js';
 import { listSources, getSource } from './sources.js';
 import { parseMarketplaceOcrText } from './ocr.js';
 import { importTaxTransactions, addGovMapEvidence, govMapLink } from './evidence.js';
+import { analyzeAddress, suggestAddresses } from './address-analysis.js';
 
 const send = (res, status, body) => { res.writeHead(status, {'content-type':'application/json; charset=utf-8'}); res.end(JSON.stringify(body, null, 2)); };
 const readBody = async (req, maxBytes=3_000_000) => { const chunks=[];let size=0;for await (const c of req){size+=c.length;if(size>maxBytes)throw new Error('request_body_too_large');chunks.push(c)}return chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : {}; };
@@ -35,6 +36,11 @@ export function createServer() { return http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { status:'ok', service:'maor-property-intelligence' });
     if (req.method === 'GET' && url.pathname === '/api/v1/listings') return send(res, 200, { data:listListings(url.searchParams.get('type'), Number(url.searchParams.get('limit') || 100),url.searchParams.get('source')) });
+    if(req.method==='GET'&&url.pathname==='/api/v1/addresses/suggest')return send(res,200,{data:suggestAddresses({q:url.searchParams.get('q')||'',city:url.searchParams.get('city')||'',limit:Number(url.searchParams.get('limit')||12)})});
+    if(req.method==='GET'&&url.pathname==='/api/v1/address-analysis'){
+      try{return send(res,200,{data:analyzeAddress({address:url.searchParams.get('address'),city:url.searchParams.get('city'),street:url.searchParams.get('street'),houseNumber:url.searchParams.get('houseNumber'),neighborhood:url.searchParams.get('neighborhood'),rooms:url.searchParams.get('rooms'),areaSqm:url.searchParams.get('areaSqm'),floor:url.searchParams.get('floor')})})}
+      catch(error){return send(res,400,{error:'invalid_address',message:error.message})}
+    }
     if (req.method === 'GET' && url.pathname === '/api/v1/sources') return send(res,200,{data:{sources:listSources(),coverage:getSourceCoverage()}});
     if(req.method==='GET'&&url.pathname==='/api/v1/marketplace-inbox')return send(res,200,{data:listMarketplaceInbox(Number(url.searchParams.get('limit')||50))});
     if(req.method==='POST'&&url.pathname==='/api/v1/marketplace-inbox'){
