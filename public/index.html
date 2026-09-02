@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1220">
+  <title>MAOR Property Intelligence</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">בקעת אונו · גרסת POC</p>
+        <h1>MAOR Property Intelligence</h1>
+        <p class="subtitle">הזדמנויות נדל״ן לפי נתונים, תשואה ורמת ביטחון</p>
+      </div>
+      <div class="status"><span></span> נתונים מעודכנים</div>
+    </header>
+
+    <main>
+      <section class="summary-grid" aria-label="סיכום">
+        <article class="summary-card accent"><span>נכסים במערכת</span><strong id="propertiesCount">0</strong><small>מכירה והשכרה</small></article>
+        <article class="summary-card"><span>מודעות מכירה</span><strong id="salesCount">0</strong><small>פעילות כרגע</small></article>
+        <article class="summary-card"><span>השוואות שכירות</span><strong id="rentalsCount">0</strong><small>לחישוב תשואה</small></article>
+        <article class="summary-card"><span>הפחתות מחיר</span><strong id="dropsCount">0</strong><small>דורשות בדיקה</small></article>
+        <article class="summary-card"><span>ציון עסקה ממוצע</span><strong id="averageScore">0</strong><small>מתוך 100</small></article>
+        <article class="summary-card"><span>מקורות פעילים</span><strong id="activeSourcesCount">0</strong><small>לוחות בסריקה</small></article>
+      </section>
+
+      <section class="sources-panel" aria-label="מקורות מידע">
+        <div><p class="eyebrow">Multi-source coverage</p><h2>כיסוי לוחות ומקורות</h2></div>
+        <div id="sourceBadges" class="source-badges"></div>
+      </section>
+
+      <details class="marketplace-panel">
+        <summary><span><b>Facebook Marketplace Inbox</b><small>הדבקת קישור או צילום מסך והוספה להשוואת לוחות</small></span><strong>הוספת מודעה</strong></summary>
+        <form id="marketplaceForm" class="marketplace-form">
+          <label class="wide">קישור למודעה
+            <input name="url" type="url" placeholder="https://www.facebook.com/marketplace/item/...">
+          </label>
+          <label>סוג מודעה
+            <select name="listingType"><option value="sale">מכירה</option><option value="rent">השכרה</option></select>
+          </label>
+          <label>עיר *
+            <select name="city" required><option value="קריית אונו">קריית אונו</option><option value="גני תקווה">גני תקווה</option><option value="אור יהודה">אור יהודה</option><option value="יהוד מונוסון">יהוד מונוסון</option></select>
+          </label>
+          <label>שכונה<input name="neighborhood"></label>
+          <label>רחוב<input name="street"></label>
+          <label>מספר בית<input name="houseNumber"></label>
+          <label>מחיר בש״ח *<input name="price" type="number" min="1" required></label>
+          <label>חדרים<input name="rooms" type="number" min="1" max="10" step="0.5"></label>
+          <label>שטח במ״ר<input name="areaSqm" type="number" min="1" step="0.1"></label>
+          <label>קומה<input name="floor" type="number" step="1"></label>
+          <label class="wide">תיאור או הערה<textarea name="description" rows="3"></textarea></label>
+          <label class="wide file-field">צילום מסך של המודעה<input name="screenshot" type="file" accept="image/png,image/jpeg,image/webp"><small>PNG, JPEG או WebP, עד 2MB. הפענוח מציע שדות בלבד, ויש לאמת אותם לפני השמירה.</small></label>
+          <div class="marketplace-actions"><button id="marketplaceOcrButton" type="button" class="secondary-button">פענוח צילום מסך</button><button type="submit" class="refresh-button">שמירה ובדיקת כפילויות</button><output id="marketplaceStatus" aria-live="polite"></output></div>
+        </form>
+        <div id="marketplaceRecent" class="marketplace-recent"></div>
+      </details>
+
+      <details class="marketplace-panel evidence-panel">
+        <summary><span><b>Evidence Intake</b><small>עסקאות רשות המסים ואימות גאוגרפי מ־GovMap</small></span><strong>הוספת ראיות</strong></summary>
+        <div class="evidence-grid">
+          <form id="transactionImportForm" class="evidence-form">
+            <h3>ייבוא עסקאות אמת</h3>
+            <p>הדביקו מערך JSON שיוצא או הוכן מנתוני השירות הממשלתי. כל רשומה חייבת לכלול תאריך, מחיר, עיר ורחוב.</p>
+            <textarea name="transactions" rows="8" placeholder='[{"sourceTransactionId":"...","transactionDate":"2026-08-01","price":2400000,"city":"קריית אונו","street":"המעגל","houseNumber":"16","rooms":4,"areaSqm":100}]' required></textarea>
+            <button type="submit" class="refresh-button">ייבוא עסקאות</button><output id="transactionImportStatus" aria-live="polite"></output>
+          </form>
+          <form id="govMapEvidenceForm" class="evidence-form">
+            <h3>שמירת אימות GovMap</h3>
+            <p>הנתונים יישמרו עבור הנכס שנבחר כרגע בטבלה, יחד עם המקור ורמת הביטחון.</p>
+            <div class="evidence-fields"><label>קו רוחב<input name="latitude" type="number" min="29" max="34" step="0.000001"></label><label>קו אורך<input name="longitude" type="number" min="34" max="36" step="0.000001"></label><label>גוש<input name="block"></label><label>חלקה<input name="parcel"></label><label>ביטחון<select name="confidence"><option value="0.8">80%</option><option value="0.9">90%</option><option value="1">100%</option></select></label></div>
+            <button type="submit" class="refresh-button">שמירת ראיית GovMap</button><output id="govMapEvidenceStatus" aria-live="polite"></output>
+          </form>
+        </div>
+      </details>
+
+      <section id="alertsPanel" class="alerts-panel" aria-label="התראות" hidden>
+        <div class="alerts-heading"><div><p class="eyebrow">Deal Alerts</p><h2>התראות חדשות</h2></div><span id="alertsCount" class="alerts-count">0</span></div>
+        <div id="alertsList" class="alerts-list"></div>
+      </section>
+
+      <section class="toolbar" aria-label="סינון נכסים">
+        <label class="search-box">
+          <span aria-hidden="true">⌕</span>
+          <input id="searchInput" type="search" placeholder="חיפוש לפי עיר, שכונה או רחוב" autocomplete="off">
+        </label>
+        <label>ציון מינימלי
+          <select id="scoreFilter"><option value="0">ללא סינון</option><option value="50">50 ומעלה</option><option value="70">70 ומעלה</option><option value="85">85 ומעלה</option></select>
+        </label>
+        <label>מקור
+          <select id="sourceFilter"><option value="">כל הלוחות</option></select>
+        </label>
+        <button id="refreshButton" class="refresh-button" type="button">רענון נתונים</button>
+      </section>
+
+      <section class="map-panel" aria-label="מפת נכסים">
+        <div class="section-heading map-heading">
+          <div><p class="eyebrow">Deal Map</p><h2>מפת הזדמנויות</h2></div>
+          <div class="map-legend" aria-label="מקרא"><span class="legend-high">85-100</span><span class="legend-mid">60-84</span><span class="legend-low">מתחת ל-60</span></div>
+        </div>
+        <div id="propertyMap" role="application" aria-label="מפה אינטראקטיבית של נכסים"></div>
+        <p class="map-note">סמן עם הילה מציין מיקום משוער ברמת רחוב. מיקום מדויק יוצג רק לאחר אימות כתובת או קואורדינטות מהמקור.</p>
+      </section>
+
+      <section class="content-grid">
+        <div class="opportunity-panel">
+          <div class="section-heading"><div><p class="eyebrow">Opportunity Feed</p><h2>הנכסים שכדאי לבדוק</h2></div><span id="resultCount" class="result-count">0 תוצאות</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>ציון</th><th>נכס</th><th>מקור</th><th>מחיר</th><th>חדרים</th><th>מ״ר</th><th>תשואה</th><th>ביטחון</th></tr></thead>
+              <tbody id="propertiesTable"></tbody>
+            </table>
+          </div>
+          <div id="emptyState" class="empty-state" hidden>לא נמצאו נכסים שמתאימים לסינון.</div>
+        </div>
+
+        <aside id="detailPanel" class="detail-panel" aria-live="polite">
+          <div class="detail-placeholder"><span>⌂</span><h2>בחר נכס</h2><p>לחיצה על שורה תציג ניתוח, תשואה וטווח מחיר מומלץ.</p></div>
+        </aside>
+      </section>
+
+      <section class="charts-panel" aria-label="גרפים לניתוח הנכס">
+        <div class="section-heading"><div><p class="eyebrow">Property Analytics</p><h2 id="chartsTitle">גרפים לנכס הנבחר</h2></div><span class="result-count">נתונים מאומתים והנחות מסומנות</span></div>
+        <div class="charts-grid">
+          <article class="chart-card"><div><h3>היסטוריית מחיר</h3><p>מחיר מבוקש בכל תצפית</p></div><div id="priceChart" class="chart-surface"></div></article>
+          <article class="chart-card"><div><h3>השוואת שכירות</h3><p>מודעות דומות פעילות באזור</p></div><div id="rentChart" class="chart-surface"></div></article>
+          <article class="chart-card"><div><h3>עסקאות אמת</h3><p>מחירי עסקאות שיובאו ממאגר רשות המסים</p></div><div id="transactionChart" class="chart-surface"></div></article>
+          <article class="chart-card"><div><h3>תשואה</h3><p>ברוטו לעומת נטו על ההשקעה הכוללת</p></div><div id="yieldChart" class="chart-surface"></div></article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" crossorigin="anonymous"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

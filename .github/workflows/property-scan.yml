@@ -1,0 +1,39 @@
+name: Property scan
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Restore property database
+        uses: actions/cache/restore@v4
+        with:
+          path: data/maor-property.db
+          key: mpi-db-${{ github.run_id }}
+          restore-keys: mpi-db-
+      - name: Scan enabled property boards and create alerts
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          DATABASE_PATH: ./data/maor-property.db
+          ENABLED_SOURCES: yad2,madlan,homeless,komo,ad
+          SCAN_MAX_ITEMS_PER_SOURCE: 50
+        run: node src/scan.js
+      - name: Save property database
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/maor-property.db
+          key: mpi-db-${{ github.run_id }}
