@@ -42,7 +42,7 @@ export function normalizeApifyListing(row, listingType, source = 'yad2') {
       sourceUrl: pick(row, ['url', 'link', 'itemUrl']) || null,
       propertyType: pick(row, ['propertyType', 'type', 'property_type']) || null,
       rooms: number(pick(row, ['rooms', 'roomCount'])),
-      areaSqm: number(pick(row, ['areaSqm', 'area', 'squareMeter', 'sqm', 'size'])),
+      areaSqm: number(pick(row, ['areaSqm', 'area', 'squareMeter', 'squareMeters', 'sqm', 'size'])),
       floor: number(pick(row, ['floor', 'floorNumber'])),
       totalFloors: number(pick(row, ['totalFloors', 'floors'])),
       askingPrice: Math.round(number(pick(row, ['price', 'askingPrice', 'priceValue'])) || 0),
